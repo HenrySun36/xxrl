@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雄安新兴戎利公司运管部台账</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Helvetica Neue', 'Hiragino Sans GB', 'WenQuanYi Micro Hei', 'Microsoft Yahei', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 320px; /* Base height */
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .tab {
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .tab.active {
+            background-color: #0f172a;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .tab:not(.active) {
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+        .tab:hover:not(.active) {
+            background-color: #e2e8f0;
+        }
+        .progress-bar-bg {
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .progress-bar-fg {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease-in-out;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 0.75em;
+            font-weight: 600;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.375rem;
+        }
+        .contract-table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+        .contract-table th {
+            text-align: left;
+            padding: 0.75rem 0.5rem;
+            background-color: #f1f5f9;
+            font-weight: 600;
+            color: #334155;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .contract-table td {
+            padding: 0.65rem 0.75rem;
+            vertical-align: middle;
+            overflow: visible;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        .contract-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+        .col-name {
+            width: 28%;
+            min-width: 180px;
+        }
+        .col-partner {
+            width: 22%;
+            min-width: 150px;
+        }
+        .col-amount {
+            width: 12%;
+            min-width: 100px;
+        }
+        thead .col-amount {
+            text-align: left;
+        }
+        tbody .col-amount {
+            text-align: left;
+        }
+        .col-location {
+            width: 14%;
+            min-width: 120px;
+        }
+        .col-date {
+            width: 10%;
+            min-width: 90px;
+        }
+        .col-status {
+            width: 8%;
+            min-width: 80px;
+        }
+        .col-progress {
+            width: 12%;
+            min-width: 120px;
+        }
+        .col-invoice {
+            width: 8%;
+            min-width: 80px;
+        }
+        .col-manager {
+            width: 8%;
+            min-width: 80px;
+        }
+        .container {
+            max-width: 1200px;
+        }
+
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">雄安新兴戎利运管部智能台账仪表盘</h1>
+            <p class="mt-2 text-lg text-slate-600">从记录到管理：实时洞察合同执行与财务健康状况</p>
+        </header>
+
+        <nav class="flex justify-center items-center space-x-2 sm:space-x-4 mb-8">
+            <button id="tab-winning" class="tab active">中标合同</button>
+            <button id="tab-procurement" class="tab">采购合同</button>
+        </nav>
+
+        <!-- 搜索和筛选区域 -->
+        <section class="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-8">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 flex-grow">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">搜索</label>
+                        <input type="text" id="search-input" placeholder="输入合同名称、合作方等关键词" 
+                               class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">合同状态</label>
+                        <select id="status-filter" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">全部状态</option>
+                            <option value="执行中">执行中</option>
+                            <option value="已完结">已完结</option>
+                            <option value="已归档">已归档</option>
+                            <option value="未开始">未开始</option>
+                            <option value="中止">中止</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">发票状态</label>
+                        <select id="invoice-filter" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">全部发票状态</option>
+                            <option value="已开完">已开完</option>
+                            <option value="已开部分">已开部分</option>
+                            <option value="未开">未开</option>
+                            <option value="已收">已收</option>
+                            <option value="未收">未收</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-end">
+                    <button
+                        id="export-button"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                        导出数据
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <main id="dashboard-content">
+            <!-- Content will be dynamically rendered here -->
+        </main>
+    </div>
+
+    <script>
+        const winningContractsData = [
+            { id: 1, name: '容城县中医医院物业服务采购合同', client: '容城县中医院', amount: 7695520, type: '医疗康养类', signDate: '2024-12-24', endDate: '2027-12-23', received: 3500000, invoiceStatus: '已开部分', status: '执行中', manager: '宋来庆' },
+            { id: 2, name: '容城县中医医院物业服务采购合同补充协议', client: '容城县中医院', amount: 114007.7, type: '医疗康养类', signDate: '2024-12-24', endDate: '2027-12-23', received: 0, invoiceStatus: '未开', status: '执行中', manager: '宋来庆' },
+            { id: 3, name: '弥渡好来世纪广场2栋物业委托服务合同', client: '中国新兴建设开发有限责任公司', amount: 645538.08, type: '住宅类', signDate: '2024-11-13', endDate: '2027-7-31', received: 600000, invoiceStatus: '已开部分', status: '执行中', manager: '王燕飚' },
+            { id: 4, name: '容东安兴社区服务中心入室保洁服务合同', client: '中国雄安集团公共服务管理有限公司', amount: 8320, type: '公共建筑类', signDate: '2024-12-20', endDate: '2025-9-20', received: 0, invoiceStatus: '未开', status: '未开始', manager: '张三' },
+            { id: 5, name: '雄安体育中心项目（体育馆部分）承接查验服务合同', client: '雄安体育中心运营管理有限公司', amount: 716876, type: '公共建筑类', signDate: '2025-2-21', endDate: '2025-3-31', received: 716876, invoiceStatus: '已开完', status: '已完结', manager: '牛自航' },
+            { id: 6, name: '北京中兴医院门诊综合楼物业服务采购项目合同', client: '北京中兴医院', amount: 1403000, type: '医疗康养类', signDate: '2025-2-24', endDate: '2027-2-28', received: 100000, invoiceStatus: '未开', status: '执行中', manager: '王五' },
+            { id: 7, name: '老山西街10号院8、9、10号楼物业管理服务合同', client: '老山西街10号院全体业主', amount: 1900000, type: '住宅类', signDate: '2025-2-1', endDate: '2028-1-31', received: 0, invoiceStatus: '未开', status: '未开始', manager: '王五' },
+            { id: 8, name: '容西学校2025年物业服务采购项目合同', client: '容城县教育局', amount: 2436243.84, type: '公共建筑类', signDate: '2025-2-21', endDate: '2026-2-20', received: 2436243.84, invoiceStatus: '已开完', status: '已归档', manager: '何向东' },
+            { id: 9, name: '弥渡好来世纪广场2栋屋顶检修合同', client: '中国新兴建设开发有限责任公司', amount: 280000, type: '其它', signDate: '2025-4-17', endDate: '2027-7-31', received: 0, invoiceStatus: '未开', status: '未开始', manager: '王燕飚' },
+            { id: 10, name: '弥渡好来世纪广场2栋消防设施设备维修合同', client: '中国新兴建设开发有限责任公司', amount: 28726.82, type: '其它', signDate: '2025-4-17', endDate: '2025-5-17', received: 28726.82, invoiceStatus: '已开完', status: '已完结', manager: '王燕飚' },
+            { id: 11, name: '雄安体育中心项目承接查验服务合同（补充协议）', client: '雄安体育中心运营管理有限公司', amount: 512500, type: '公共建筑类', signDate: '2025-2-1', endDate: '2025-4-18', received: 0, invoiceStatus: '未开', status: '执行中', manager: '牛自航' },
+            { id: 12, name: '保定宝石花东方医院保洁服务外包合同', client: '保定宝石花东方医院', amount: 728794, type: '医疗康养类', signDate: '2025-6-15', endDate: '2026-6-14', received: 0, invoiceStatus: '未开', status: '未开始', manager: '许云舒' },
+            { id: 13, name: '雄安体育中心项目2025年度物业服务标段一合同', client: '通用技术集团物业管理有限公司', amount: 4435614.68, type: '公共建筑类', signDate: '2025-6-20', endDate: '2026-4-20', received: 0, invoiceStatus: '未开', status: '未开始', manager: '牛自航' },
+            { id: 14, name: '华北石油管理局总医院健康管理部增设医辅服务项目合同', client: '华北石油管理局总医院', amount: 474000, type: '医疗康养类', signDate: '2025-8-8', endDate: '2026-8-7', received: 0, invoiceStatus: '未开', status: '未开始', manager: '王新兰' },
+        ];
+
+        const procurementContractsData = [
+            { id: 1, name: '消防维保服务委托合同', supplier: '云南安高科技有限公司', amount: 31900, type: '其它', signDate: '2024-9-1', endDate: '2025-8-31', paid: 31900, invoiceStatus: '已收', status: '已完结', manager: '王燕飚', projectName: '弥渡好来世纪广场项目', unit: '新兴戎利', contractNo: 'XXRL-MDSC-WB-2024-01', location: '云南省弥渡县' },
+            { id: 2, name: '电梯维保项目服务委托合同', supplier: '云南奥菱电梯有限公司', amount: 66400, type: '其它', signDate: '2024-9-1', endDate: '2025-8-31', paid: 66400, invoiceStatus: '已收', status: '已完结', manager: '王燕飚', projectName: '弥渡好来世纪广场项目', unit: '新兴戎利', contractNo: 'XXRL-MD-2024-08', location: '云南省弥渡县' },
+            { id: 3, name: '劳务服务外包合同', supplier: '大理恒晟保安服务有限责任公司', amount: 198900, type: '住宅类', signDate: '2024-8-30', endDate: '2025-8-31', paid: 198900, invoiceStatus: '已收', status: '已完结', manager: '王燕飚', projectName: '弥渡好来世纪广场项目', unit: '新兴戎利', contractNo: 'XXRL-MDSC-FW-2024-01', location: '云南省弥渡县' },
+            { id: 4, name: '容城县中医医院保洁服务及劳务派遣服务项目服务协议', supplier: '容城县鑫三物业管理有限公司', amount: 320100, type: '医疗康养类', signDate: '2024-12-24', endDate: '2025-12-23', paid: 320100, invoiceStatus: '已收', status: '已完结', manager: '宋来庆', projectName: '容城中医医院项目', unit: '新兴戎利', contractNo: 'XXRL-RS-YJ-202412', location: '河北省容城县' },
+            { id: 5, name: '容城县中医医院保洁项目保洁服务合同', supplier: '容城县鑫三物业管理有限公司', amount: 3394800, type: '医疗康养类', signDate: '2024-12-24', endDate: '2027-12-23', paid: 1697400, invoiceStatus: '已收部分', status: '执行中', manager: '宋来庆', projectName: '容城中医医院项目', unit: '新兴戎利', contractNo: 'XXGG-BJ202412', location: '河北省容城县' },
+            { id: 6, name: '容城县中医医院物业服务临时协议', supplier: '容城县鑫三物业管理有限公司', amount: 107167.24, type: '医疗康养类', signDate: '2024-12-8', endDate: '2024-12-23', paid: 107167.24, invoiceStatus: '已收', status: '已完结', manager: '宋来庆', projectName: '容城中医医院项目', unit: '新兴戎利', contractNo: '/', location: '河北省容城县' },
+            { id: 7, name: '北京大学人民医院雄安院区生物样本库临时物业保障项目服务合同', supplier: '北京瑞成盛业物业管理有限公司', amount: 243156, type: '医疗康养类', signDate: '2025-1-15', endDate: '2025-7-15', paid: 121578, invoiceStatus: '已收部分', status: '执行中', manager: '孙七', projectName: '北京大学人民医院雄安院区生物样本库临时物业保障项目', unit: '新兴戎利', contractNo: 'XXRL-BR-YJC-202501-01', location: '河北省容城县' },
+            { id: 8, name: '容城县中医医院物业业务劳务派遣服务合同', supplier: '容城县星业人力资源服务有限公司', amount: 3518000, type: '医疗康养类', signDate: '2025-3-24', endDate: '2027-12-23', paid: 879500, invoiceStatus: '已收部分', status: '执行中', manager: '宋来庆', projectName: '容城中医医院', unit: '新兴戎利', contractNo: '2025-XXRL-RCYZ-FW-001', location: '河北省容城县' },
+            { id: 9, name: '雄安体育中心项目（体育馆部分）承接查验服务合同', supplier: '北京瑞成盛业物业管理有限公司', amount: 643085.92, type: '公共建筑类', signDate: '2025-2-21', endDate: '2025-3-31', paid: 643085.92, invoiceStatus: '已收', status: '已完结', manager: '牛自航', projectName: '雄安体育中心项目', unit: '新兴戎利', contractNo: '2025-XXRL-TYZY-FW-004', location: '河北省容城县' },
+            { id: 10, name: '容西校园望泉小学、兴学幼儿园2025年物业服务采购合同', supplier: '宸宜（天津）物业管理有限公司', amount: 118444.82, type: '公共建筑类', signDate: '2025-2-21', endDate: '2025-2-20', paid: 118444.82, invoiceStatus: '已收', status: '已完结', manager: '何向东', projectName: '容西学校项目', unit: '新兴戎利', contractNo: '2025-XXRL-RCXX-FW-005', location: '河北省容城县' },
+            { id: 11, name: '容西校园华兴初中2025年物业服务采购合同', supplier: '宸宜（天津）物业管理有限公司', amount: 820002.6, type: '公共建筑类', signDate: '2025-2-21', endDate: '2026-2-20', paid: 410001.3, invoiceStatus: '已收部分', status: '执行中', manager: '何向东', projectName: '容西学校项目', unit: '新兴戎利', contractNo: '2025-XXRL-RCXX-FW-004', location: '河北省容城县' },
+            { id: 12, name: '容西校园望泉小学2025年物业服务采购合同', supplier: '宸宜（天津）物业管理有限公司', amount: 747993.91, type: '公共建筑类', signDate: '2025-2-21', endDate: '2026-2-20', paid: 373996.96, invoiceStatus: '已收部分', status: '执行中', manager: '何向东', projectName: '容西学校项目', unit: '新兴戎利', contractNo: '2025-XXRL-RCXX-FW-003', location: '河北省容城县' },
+            { id: 13, name: '容西校园兴学幼儿园2025年物业服务采购合同', supplier: '河北雄安九力人力资源管理有限公司', amount: 550498, type: '公共建筑类', signDate: '2025-3-21', endDate: '2026-2-20', paid: 275249, invoiceStatus: '已收部分', status: '执行中', manager: '何向东', projectName: '容西学校项目', unit: '新兴戎利', contractNo: '2025-XXRL-RCXX-FW-002', location: '河北省容城县' },
+            { id: 14, name: '非居民垃圾收运处置服务合同', supplier: '中国雄安集团生态建设投资有限公司', amount: 240102.5, type: '公共建筑类', signDate: '2025-3-28', endDate: '2025-6-30', paid: 240102.5, invoiceStatus: '已收', status: '已完结', manager: '牛自航', projectName: '雄安体育中心项目', unit: '新兴戎利', contractNo: 'XAQT-QT-2025-0154', location: '河北省容城县' },
+            { id: 15, name: '写字楼租赁合同', supplier: '河北雄安商务服务中心有限公司', amount: 1770207.26, type: '公共建筑类', signDate: '2025-4-1', endDate: '2026-3-31', paid: 885103.63, invoiceStatus: '已收部分', status: '执行中', manager: '吴九', projectName: '雄安商务服务中心项目', unit: '新兴戎利', contractNo: 'CSFZ-ZL-001-0018-XZL-2025-01', location: '河北省容城县' },
+            { id: 16, name: '物业服务协议', supplier: '河北雄安城市发展生活服务有限公司', amount: 1381417.2, type: '公共建筑类', signDate: '2025-4-1', endDate: '2026-3-31', paid: 690708.6, invoiceStatus: '已收部分', status: '执行中', manager: '孙七', projectName: '雄安商务服务中心项目', unit: '新兴戎利', contractNo: 'CSFZ-FW-2025-0019-GF-XXRL', location: '河北省容城县' },
+            { id: 17, name: '雄安体育中心临勤服务合同', supplier: '河北雄安城市发展生活服务有限公司', amount: 176840, type: '公共建筑类', signDate: '2025-3-21', endDate: '2025-4-1', paid: 176840, invoiceStatus: '已收', status: '已完结', manager: '牛自航', projectName: '雄安体育中心项目', unit: '新兴戎利', contractNo: '2025-XXRL-TYZY-FW-006-01', location: '河北省容城县' },
+            { id: 18, name: '雄安体育中心临勤服务合同', supplier: '石家庄保安服务集团有限公司河北雄安分公司', amount: 96000, type: '公共建筑类', signDate: '2025-3-21', endDate: '2025-4-1', paid: 96000, invoiceStatus: '已收', status: '已完结', manager: '牛自航', projectName: '雄安体育中心项目', unit: '新兴戎利', contractNo: '2025-XXRL-RCXX-FW-006-02', location: '河北省容城县' },
+            { id: 19, name: '雄安体育中心项目承接查验服务合同（补充协议）', supplier: '北京瑞成盛业物业管理有限公司', amount: 501200, type: '公共建筑类', signDate: '2025-2-1', endDate: '2025-4-18', paid: 501200, invoiceStatus: '已收', status: '已完结', manager: '牛自航', projectName: '雄安体育中心项目', unit: '新兴戎利', contractNo: '2025-XXRL-TYZY-FW-004-01', location: '河北省容城县' },
+            { id: 20, name: '雄安体育中心项目(体育场和游泳馆部分)2025年度物业服务标段一合同', supplier: '北京瑞成盛业物业管理有限公司', amount: 2190000, type: '公共建筑类', signDate: '2025-7-22', endDate: '2026-4-20', paid: 425000, invoiceStatus: '已收部分', status: '执行中', manager: '牛自航', projectName: '雄安体育中心项目', unit: '新兴戎利', contractNo: '2025-XXRL-TYZY-FW-008', location: '河北省容城县' },
+        ];
+
+        let currentView = 'winning';
+        let typeChart = null;
+        let partnerChart = null;
+
+        const formatCurrency = (num) => `¥${(num / 10000).toFixed(2)}万`;
+
+        const statusColors = {
+            '执行中': 'bg-blue-100 text-blue-800',
+            '已完结': 'bg-green-100 text-green-800',
+            '已归档': 'bg-slate-100 text-slate-800',
+            '未开始': 'bg-yellow-100 text-yellow-800',
+            '中止': 'bg-red-100 text-red-800',
+        };
+
+        const invoiceColors = {
+            '已开完': 'bg-green-100 text-green-800',
+            '已开部分': 'bg-yellow-100 text-yellow-800',
+            '未开': 'bg-orange-100 text-orange-800',
+            '已收': 'bg-green-100 text-green-800',
+            '未收': 'bg-red-100 text-red-800',
+        };
+
+        function renderDashboard() {
+            const data = currentView === 'winning' ? winningContractsData : procurementContractsData;
+            const contentEl = document.getElementById('dashboard-content');
+
+            // 应用搜索和筛选
+            const filteredData = applySearchAndFilters(data);
+
+            const isWinning = currentView === 'winning';
+            const amountKey = 'amount';
+            const paidReceivedKey = isWinning ? 'received' : 'paid';
+            const partnerKey = isWinning ? 'client' : 'supplier';
+
+            const totalAmount = filteredData.reduce((sum, item) => sum + item[amountKey], 0);
+            const totalPaidReceived = filteredData.reduce((sum, item) => sum + item[paidReceivedKey], 0);
+            const balance = totalAmount - totalPaidReceived;
+            const completionRate = totalAmount > 0 ? (totalPaidReceived / totalAmount * 100).toFixed(1) : 0;
+
+            const kpiTitle1 = isWinning ? '已收账款总额' : '已付账款总额';
+            const kpiTitle2 = isWinning ? '履约率' : '履约率';
+            const kpiTitle3 = isWinning ? '中标合同总额' : '采购合同总额';
+            
+            const tableHeaders = isWinning 
+                  ? ['合同名称', '委托方', '项目地点', '合同签订日期', '合同到期日期', '合同状态', '含税金额', '已收款', '履约进度', '开票情况', '项目负责人']
+                  : ['合同名称', '供应商', '含税金额', '项目地点', '合同签订日期', '合同到期日期', '合同状态', '已付款', '履约进度', '发票情况', '项目负责人'];
+
+            const tableRows = filteredData.map(item => {
+            const progress = item[amountKey] > 0 ? (item[paidReceivedKey] / item[amountKey] * 100) : 0;
+            
+            // 推断项目地点
+            let location = '';
+            if (isWinning) {
+                if (item.name.includes('容城县中医医院')) location = '河北省容城县';
+                else if (item.name.includes('体育中心')) location = '河北省容城县';
+                else if (item.name === '北京中兴医院门诊综合楼物业服务采购项目物业管理服务合同') location = '北京市海淀区';
+                else if (item.name.includes('老山西街10号院')) location = '北京市石景山区';
+                else if (item.name.includes('北京')) location = '北京市海淀区';
+                else if (item.name.includes('弥渡')) location = '云南省弥渡县';
+                else if (item.name.includes('宝石花')) location = '河北省保定市徐水区';
+                else if (item.name.includes('华北石油')) location = '河北省任丘市';
+                else location = '河北省容城县';
+            }
+            
+            return `
+                <tr class="border-b border-slate-200 hover:bg-slate-50">
+                    ${isWinning ? `
+                    <td class="col-name p-3 font-medium text-slate-900 cursor-pointer hover:text-blue-600" data-id="${item.id}" data-type="winning">${item.name}</td>
+                    <td class="col-partner p-3 text-slate-600">${item[partnerKey]}</td>
+                    <td class="col-location p-3 text-slate-600">${location}</td>
+                    <td class="col-date p-3 text-slate-600">${item.signDate}</td>
+                    <td class="col-date p-3 text-slate-600">${item.endDate}</td>
+                    ` : `
+                    <td class="col-name p-3 font-medium text-slate-900 cursor-pointer hover:text-blue-600" data-id="${item.id}" data-type="procurement">${item.name}</td>
+                    <td class="col-partner p-3 text-slate-600">${item[partnerKey]}</td>
+                    <td class="col-amount p-3">${formatCurrency(item.amount)}</td>
+                    <td class="col-location p-3 text-slate-600">${item.location || '河北省容城县'}</td>
+                    <td class="col-date p-3 text-slate-600">${item.signDate}</td>
+                    <td class="col-date p-3 text-slate-600">${item.endDate || '-'}</td>
+                    `}
+                    <td class="col-status p-3"><span class="badge ${statusColors[item.status] || ''}">${item.status}</span></td>
+                    ${isWinning ? `
+                    <td class="col-amount p-3">${formatCurrency(item.amount)}</td>
+                    <td class="col-amount p-3 text-green-600">${formatCurrency(item[paidReceivedKey])}</td>
+                    ` : `
+                    <td class="col-amount p-3 text-green-600">${formatCurrency(item[paidReceivedKey])}</td>
+                    `}
+                    <td class="col-progress p-3">
+                        <div class="flex items-center">
+                            <div class="w-full progress-bar-bg mr-2">
+                                <div class="progress-bar-fg bg-gray-500 h-2" style="width: ${progress}%;"></div>
+                            </div>
+                            <span class="text-xs font-semibold">${progress.toFixed(0)}%</span>
+                        </div>
+                    </td>
+                    <td class="col-invoice p-3"><span class="badge ${invoiceColors[item.invoiceStatus] || ''}">${item.invoiceStatus}</span></td>
+                    <td class="col-manager p-3 text-slate-600">${item.manager}</td>
+                </tr>
+            `;
+        }).join('');
+
+            contentEl.innerHTML = `
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="kpi-card">
+                        <h3 class="text-slate-500 font-medium">${kpiTitle3}</h3>
+                        <p class="text-3xl font-bold text-slate-900 mt-2">${formatCurrency(totalAmount)}</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3 class="text-slate-500 font-medium">${kpiTitle1}</h3>
+                        <p class="text-3xl font-bold text-slate-900 mt-2">${formatCurrency(totalPaidReceived)}</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3 class="text-slate-500 font-medium">${kpiTitle2}</h3>
+                        <p class="text-3xl font-bold text-slate-900 mt-2">${completionRate}%</p>
+                    </div>
+                </section>
+
+                <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-1 text-slate-700">合同类别分布</h3>
+                        <p class="text-sm text-slate-500 mb-4">各项业务类型的合同金额占比，帮助分析业务构成。</p>
+                        <div class="chart-container"><canvas id="typeChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-1 text-slate-700">${isWinning ? '主要委托方排名' : '主要供应商排名'}</h3>
+                        <p class="text-sm text-slate-500 mb-4">按合作金额排序，识别核心合作伙伴。</p>
+                        <div class="chart-container"><canvas id="partnerChart"></canvas></div>
+                    </div>
+                </section>
+                
+                <section class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                     <h3 class="text-lg font-semibold mb-1 text-slate-700">合同明细列表</h3>
+                     <p class="text-sm text-slate-500 mb-4">所有合同的详细执行情况</p>
+                    <div class="overflow-x-auto" style="border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+                        <table class="contract-table">
+                            <thead class="bg-slate-50 text-xs text-slate-700 uppercase">
+                                <tr>
+                                    ${isWinning ? 
+                                        `<th class="col-name">${tableHeaders[0]}</th>
+                                        <th class="col-partner">${tableHeaders[1]}</th>
+                                        <th class="col-location">${tableHeaders[2]}</th>
+                                        <th class="col-date">${tableHeaders[3]}</th>
+                                        <th class="col-date">${tableHeaders[4]}</th>
+                                        <th class="col-status">${tableHeaders[5]}</th>
+                                        <th class="col-amount">${tableHeaders[6]}</th>
+                                        <th class="col-amount">${tableHeaders[7]}</th>
+                                        <th class="col-progress">${tableHeaders[8]}</th>
+                                        <th class="col-invoice">${tableHeaders[9]}</th>
+                                        <th class="col-manager">${tableHeaders[10]}</th>` 
+                                        : 
+                                        `<th class="col-name">${tableHeaders[0]}</th>
+                                        <th class="col-partner">${tableHeaders[1]}</th>
+                                        <th class="col-amount">${tableHeaders[2]}</th>
+                                        <th class="col-location">${tableHeaders[3]}</th>
+                                        <th class="col-date">${tableHeaders[4]}</th>
+                                        <th class="col-date">${tableHeaders[5]}</th>
+                                        <th class="col-status">${tableHeaders[6]}</th>
+                                        <th class="col-amount">${tableHeaders[7]}</th>
+                                        <th class="col-progress">${tableHeaders[8]}</th>
+                                        <th class="col-invoice">${tableHeaders[9]}</th>
+                                        <th class="col-manager">${tableHeaders[10]}</th>`
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows || '<tr><td colspan="11" class="text-center py-8 text-slate-500">暂无数据</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                    </section>
+            `;
+
+            renderCharts(filteredData, isWinning);
+        }
+
+        // 导出数据为CSV文件
+        function exportData() {
+            const data = currentView === 'winning' ? winningContractsData : procurementContractsData;
+            const filteredData = applySearchAndFilters(data);
+            const isWinning = currentView === 'winning';
+            const partnerKey = isWinning ? 'client' : 'supplier';
+            const paidReceivedKey = isWinning ? 'received' : 'paid';
+            
+            // 确定CSV列标题和对应的数据字段
+            const headers = isWinning ? 
+                ['合同名称', '委托方', '项目地点', '签订日期', '结束日期', '状态', '合同金额', '已收款', '完成度', '发票状态', '项目经理', '类型'] : 
+                ['合同名称', '供应商', '合同金额', '项目地点', '签订日期', '结束日期', '状态', '已付款', '完成度', '发票状态', '项目经理', '类型'];
+            
+            // 准备CSV内容，添加BOM以确保中文显示正常
+            let csvContent = '\ufeff' + headers.join(',') + '\n';
+            
+            // 添加数据行
+            filteredData.forEach(item => {
+                const location = item.location || '河北省容城县';
+                const progress = Math.round((item[paidReceivedKey] || 0) / item.amount * 100);
+                
+                const row = isWinning ? 
+                    [
+                        `"${item.name}"`,
+                        `"${item[partnerKey]}"`,
+                        `"${location}"`,
+                        item.signDate,
+                        item.endDate,
+                        `"${item.status}"`,
+                        item.amount,
+                        item[paidReceivedKey] || 0,
+                        `${progress}%`,
+                        `"${item.invoiceStatus}"`,
+                        `"${item.manager}"`,
+                        `"${item.type}"`
+                    ] : 
+                    [
+                        `"${item.name}"`,
+                        `"${item[partnerKey]}"`,
+                        item.amount,
+                        `"${location}"`,
+                        item.signDate,
+                        item.endDate || '-',
+                        `"${item.status}"`,
+                        item[paidReceivedKey] || 0,
+                        `${progress}%`,
+                        `"${item.invoiceStatus}"`,
+                        `"${item.manager}"`,
+                        `"${item.type}"`
+                    ];
+                
+                csvContent += row.join(',') + '\n';
+            });
+            
+            // 创建Blob并下载
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${currentView === 'winning' ? '中标合同' : '采购合同'}_数据导出_${new Date().toLocaleDateString()}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function renderCharts(data, isWinning) {
+            if (typeChart) typeChart.destroy();
+            if (partnerChart) partnerChart.destroy();
+            
+            const partnerKey = isWinning ? 'client' : 'supplier';
+
+            const typeData = data.reduce((acc, item) => {
+                acc[item.type] = (acc[item.type] || 0) + item.amount;
+                return acc;
+            }, {});
+
+            const partnerData = data.reduce((acc, item) => {
+                acc[item[partnerKey]] = (acc[item[partnerKey]] || 0) + item.amount;
+                return acc;
+            }, {});
+
+            const sortedPartners = Object.entries(partnerData).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            const typeCtx = document.getElementById('typeChart').getContext('2d');
+            typeChart = new Chart(typeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(typeData),
+                    datasets: [{
+                        data: Object.values(typeData),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.label}: ${formatCurrency(context.raw)}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            const partnerCtx = document.getElementById('partnerChart').getContext('2d');
+            partnerChart = new Chart(partnerCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedPartners.map(p => p[0]),
+                    datasets: [{
+                        label: '合同金额',
+                        data: sortedPartners.map(p => p[1]),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.label}: ${formatCurrency(context.raw)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: (value) => `${value / 10000}万`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 查看合同详情功能
+        // 创建模态框元素
+        function createContractDetailModal() {
+            // 检查模态框是否已经存在
+            if (document.getElementById('contract-detail-modal')) {
+                return;
+            }
+            
+            const modalHTML = `
+                <div id="contract-detail-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center p-4 border-b">
+                            <h2 id="modal-title" class="text-xl font-bold text-slate-900">合同详情</h2>
+                            <button id="close-modal" class="text-slate-500 hover:text-slate-700 focus:outline-none">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="modal-content" class="p-6">
+                            <!-- 合同详情内容将动态插入这里 -->
+                        </div>
+                        <div class="p-4 border-t flex justify-end">
+                            <button id="download-contract-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 mr-2">
+                                下载合同
+                            </button>
+                            <button id="close-modal-btn" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">
+                                关闭
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // 添加关闭模态框的事件监听
+            document.getElementById('close-modal').addEventListener('click', hideContractDetailModal);
+            document.getElementById('close-modal-btn').addEventListener('click', hideContractDetailModal);
+            document.getElementById('download-contract-btn').addEventListener('click', downloadContract);
+        }
+        
+        // 显示合同详情模态框
+        function showContractDetailModal() {
+            document.getElementById('contract-detail-modal').classList.remove('hidden');
+        }
+        
+        // 隐藏合同详情模态框
+        function hideContractDetailModal() {
+            document.getElementById('contract-detail-modal').classList.add('hidden');
+        }
+        
+        // 显示合同详情
+        function showContractDetails(contractId, contractType) {
+            // 获取合同数据
+            const data = contractType === 'winning' ? winningContractsData : procurementContractsData;
+            const contract = data.find(item => item.id === parseInt(contractId));
+            
+            if (!contract) {
+                alert('找不到该合同信息');
+                return;
+            }
+            
+            const isWinning = contractType === 'winning';
+            const partnerKey = isWinning ? 'client' : 'supplier';
+            const paidReceivedKey = isWinning ? 'received' : 'paid';
+            const partnerLabel = isWinning ? '委托方' : '供应商';
+            const paidReceivedLabel = isWinning ? '已收款' : '已付款';
+            
+            // 计算完成进度
+            const progress = contract.amount > 0 ? (contract[paidReceivedKey] / contract.amount * 100).toFixed(1) : 0;
+            
+            // 推断项目地点
+            let location = '';
+            if (isWinning) {
+                if (contract.name.includes('容城县中医医院')) location = '河北省容城县';
+                else if (contract.name.includes('体育中心')) location = '河北省容城县';
+                else if (contract.name === '北京中兴医院门诊综合楼物业服务采购项目物业管理服务合同') location = '北京市海淀区';
+                else if (contract.name.includes('老山西街10号院')) location = '北京市石景山区';
+                else if (contract.name.includes('雄安')) location = '河北雄安新区';
+                else if (contract.name.includes('北京')) location = '北京市海淀区';
+                else if (contract.name.includes('弥渡')) location = '云南省大理州弥渡县';
+                else if (contract.name.includes('宝石花')) location = '河北省保定市徐水区';
+                else if (contract.name.includes('华北石油')) location = '河北省沧州市';
+                else location = '河北省容城县';
+            } else {
+                if (contract.name.includes('容城县中医医院')) location = '河北省容城县';
+                else if (contract.name.includes('体育中心')) location = '河北省容城县';
+                else location = contract.location || '河北省容城县';
+            }
+            
+            // 设置模态框标题和内容
+            document.getElementById('modal-title').textContent = `合同详情：${contract.name}`;
+            
+            // 准备详情内容
+            let detailContent = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">合同名称</label>
+                            <p class="text-slate-900">${contract.name}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">${partnerLabel}</label>
+                            <p class="text-slate-900">${contract[partnerKey]}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">项目地点</label>
+                            <p class="text-slate-900">${location}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">合同类型</label>
+                            <p class="text-slate-900">${contract.type}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">项目经理</label>
+                            <p class="text-slate-900">${contract.manager}</p>
+                        </div>
+            `;
+            
+            // 采购合同特有字段
+            if (!isWinning && contract.projectName) {
+                detailContent += `
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">项目名称</label>
+                            <p class="text-slate-900">${contract.projectName}</p>
+                        </div>
+                `;
+            }
+            
+            if (!isWinning && contract.unit) {
+                detailContent += `
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">单位</label>
+                            <p class="text-slate-900">${contract.unit}</p>
+                        </div>
+                `;
+            }
+            
+            if (!isWinning && contract.contractNo) {
+                detailContent += `
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">合同编号</label>
+                            <p class="text-slate-900">${contract.contractNo}</p>
+                        </div>
+                `;
+            }
+            
+            detailContent += `
+                    </div>
+                    <div class="space-y-4">
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">合同金额</label>
+                            <p class="text-lg font-bold text-slate-900">${formatCurrency(contract.amount)}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">${paidReceivedLabel}</label>
+                            <p class="text-lg font-bold text-green-600">${formatCurrency(contract[paidReceivedKey] || 0)}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">未${isWinning ? '收' : '付'}金额</label>
+                            <p class="text-lg font-bold text-slate-900">${formatCurrency(contract.amount - (contract[paidReceivedKey] || 0))}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">${isWinning ? '回款' : '付款'}进度</label>
+                            <div class="mt-2 flex items-center">
+                                <div class="w-full progress-bar-bg mr-2">
+                                    <div class="progress-bar-fg bg-gray-500 h-2" style="width: ${progress}%;"></div>
+                                </div>
+                                <span class="text-sm font-semibold">${progress}%</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">合同状态</label>
+                            <span class="badge ${statusColors[contract.status] || ''}">${contract.status}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">发票状态</label>
+                            <span class="badge ${invoiceColors[contract.invoiceStatus] || ''}">${contract.invoiceStatus}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">签订日期</label>
+                            <p class="text-slate-900">${contract.signDate}</p>
+                        </div>
+                        <div class="detail-item">
+                            <label class="text-sm font-medium text-slate-500">结束日期</label>
+                            <p class="text-slate-900">${contract.endDate || '-'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('modal-content').innerHTML = detailContent;
+            
+            // 检查是否存在合同文件，启用或禁用下载按钮
+            const downloadBtn = document.getElementById('download-contract-btn');
+            if (hasContractFile(contract.name)) {
+                downloadBtn.disabled = false;
+                downloadBtn.classList.remove('bg-slate-300', 'text-slate-500');
+                downloadBtn.classList.add('bg-blue-600', 'text-white');
+                // 存储当前合同名称，用于下载
+                downloadBtn.setAttribute('data-contract-name', contract.name);
+            } else {
+                downloadBtn.disabled = true;
+                downloadBtn.classList.remove('bg-blue-600', 'text-white');
+                downloadBtn.classList.add('bg-slate-300', 'text-slate-500');
+            }
+            
+            showContractDetailModal();
+        }
+        
+        // 检查是否存在合同文件
+        function hasContractFile(contractName) {
+            // 这里可以根据实际情况实现文件存在性检查
+            // 由于是前端演示，这里简单返回true
+            return true;
+        }
+        
+        // 下载合同文件
+        function downloadContract() {
+            const contractName = document.getElementById('download-contract-btn').getAttribute('data-contract-name');
+            if (!contractName) {
+                alert('无法获取合同文件');
+                return;
+            }
+            
+            // 判断是否为弥渡县项目
+            let isMilestone = false;
+            
+            // 获取当前显示的合同数据
+            const currentData = currentView === 'winning' ? winningContractsData : procurementContractsData;
+            
+            // 查找匹配的合同并判断项目地点
+            for (const contract of currentData) {
+                if (contract.name === contractName) {
+                    // 对中标合同
+                    if (currentView === 'winning') {
+                        if (contractName.includes('弥渡')) {
+                            isMilestone = true;
+                        }
+                    } 
+                    // 对采购合同
+                    else {
+                        // 通过项目名称判断
+                        if (contract.projectName && contract.projectName.includes('弥渡')) {
+                            isMilestone = true;
+                        }
+                        // 通过合同名称判断
+                        else if (contractName.includes('弥渡')) {
+                            isMilestone = true;
+                        }
+                    }
+                    break;
+                }
+            }
+            
+            // 检查是否为容城县中医医院的合同
+            if (contractName.includes('容城县中医医院')) {
+                // 使用百度网盘链接下载
+                window.open('https://pan.baidu.com/s/1xyu_ZghzCbP5dlr5SoptXA', '_blank');
+                alert(`正在跳转到容城县中医医院合同下载链接：${contractName}`);
+            } 
+            // 检查是否为弥渡县的合同（包括项目地点为弥渡的所有合同）
+            else if (isMilestone) {
+                // 使用指定的百度网盘链接下载
+                window.open('https://pan.baidu.com/s/19GQYwlUwJNRkznHC2lvbcg', '_blank');
+                alert(`正在跳转到弥渡县合同下载链接：${contractName}`);
+            } 
+            else {
+                // 构建可能的文件路径
+                const folder = currentView === 'winning' ? '中标合同' : '采购合同';
+                // 这里只是一个示例，实际应用中应该根据实际的文件存储路径构建
+                alert(`正在准备下载合同：${contractName}`);
+                console.log(`合同文件路径：${folder}/${contractName}.pdf`);
+            }
+            
+            // 注意：在实际项目中，这里应该使用真实的文件路径和下载逻辑
+        }
+        
+        // 初始化合同详情功能
+        function initContractDetailFeature() {
+            createContractDetailModal();
+            
+            // 使用事件委托监听合同名称点击事件
+            document.addEventListener('click', function(e) {
+                const contractNameCell = e.target.closest('[data-id][data-type]');
+                if (contractNameCell) {
+                    const contractId = contractNameCell.getAttribute('data-id');
+                    const contractType = contractNameCell.getAttribute('data-type');
+                    showContractDetails(contractId, contractType);
+                }
+            });
+            
+            // 点击模态框背景关闭模态框
+            document.addEventListener('click', function(e) {
+                const modal = document.getElementById('contract-detail-modal');
+                if (modal && !modal.classList.contains('hidden') && e.target === modal) {
+                    hideContractDetailModal();
+                }
+            });
+        }
+
+        // 应用搜索和筛选条件
+        function applySearchAndFilters(data) {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
+            const invoiceFilter = document.getElementById('invoice-filter').value;
+            const isWinning = currentView === 'winning';
+            const partnerKey = isWinning ? 'client' : 'supplier';
+
+            return data.filter(item => {
+                // 搜索条件
+                const matchesSearch = !searchTerm || 
+                                     item.name.toLowerCase().includes(searchTerm) || 
+                                     item[partnerKey]?.toLowerCase().includes(searchTerm) ||
+                                     item.type?.toLowerCase().includes(searchTerm) ||
+                                     item.manager?.toLowerCase().includes(searchTerm);
+                
+                // 状态筛选
+                const matchesStatus = !statusFilter || item.status === statusFilter;
+                
+                // 发票状态筛选
+                const matchesInvoice = !invoiceFilter || item.invoiceStatus === invoiceFilter;
+                
+                return matchesSearch && matchesStatus && matchesInvoice;
+            });
+        }
+        
+        // 使用DOMContentLoaded事件确保DOM完全加载
+        document.addEventListener('DOMContentLoaded', function() {
+            renderDashboard();
+            
+            // 初始化合同详情功能
+            initContractDetailFeature();
+            
+            // 为搜索和筛选添加事件监听器
+            document.getElementById('search-input').addEventListener('input', renderDashboard);
+            document.getElementById('status-filter').addEventListener('change', renderDashboard);
+            document.getElementById('invoice-filter').addEventListener('change', renderDashboard);
+            
+            // 为导出按钮添加事件监听器
+            document.getElementById('export-button').addEventListener('click', exportData);
+            
+            document.getElementById('tab-winning').addEventListener('click', () => {
+                currentView = 'winning';
+                document.getElementById('tab-winning').classList.add('active');
+                document.getElementById('tab-procurement').classList.remove('active');
+                renderDashboard();
+            });
+            
+            document.getElementById('tab-procurement').addEventListener('click', () => {
+                currentView = 'procurement';
+                document.getElementById('tab-procurement').classList.add('active');
+                document.getElementById('tab-winning').classList.remove('active');
+                renderDashboard();
+            });
+        });
+    </script>
+</body>
+</html>
